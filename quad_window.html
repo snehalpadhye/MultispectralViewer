@@ -13,7 +13,7 @@
 	<body>
 
 		<div class="container">
-			  <div class="knob"></div>
+			  <div class="hook" id="hook"></div>
         <input type="file" id="fileInputI" name="file" style="display:None;" webkitdirectory multiple/>
         <div id="gui"></div>
 		</div>
@@ -25,9 +25,9 @@
 			var container, camera, renderer, controls;
 			var sceneOuter, sceneInside;
       // initial position of the window
-      var knobPosy = window.innerHeight / 2;
-			var knobPosx = window.innerWidth / 2;
-			var knobMoved = false;
+      var hookPosy = window.innerHeight / 2;
+			var hookPosx = window.innerWidth / 2;
+			var hookMoved = false;
 
       container = document.querySelector( '.container' );
 
@@ -101,7 +101,7 @@
      function update_gui(file_list){
 
          // remove folder gui
-         document.getElementById('guiFolder').remove();
+         gui.__controllers[0].remove();
 
          // initialize textures for inner and background regions
          meshOuter.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[0]));
@@ -137,38 +137,36 @@
          // option to change window size
          gui.add(params, 'window_size', 100, 500);
 
-         // enable knob for changing quadrant boundaries
-         document.getElementById('knob').style.display = 'block';
         }
 
 
-			  var knob = document.getElementById( '.knob' );
+			  var hook = document.getElementById( 'hook' );
 			  var clicked = false;
         window.addEventListener( 'mousedown', function(){clicked = true ;});
         window.addEventListener( 'touchstart', function(){clicked = true ;});
         window.addEventListener( 'mouseup', function(){clicked = false;});
         window.addEventListener( 'touchend', function(){clicked = false;});
 
-        window.addEventListener( 'mousemove', knobMove );
-        window.addEventListener( 'touchmove', knobMove );
+        window.addEventListener( 'mousemove', hookMove );
+        window.addEventListener( 'touchmove', hookMove );
         window.addEventListener( 'resize', onWindowResize );
 
-			function knobMove( e ) {
+			function hookMove( e ) {
 
 					if ( ! clicked ) return false;
 
-					knobMoved = true;
-					knobPosx = ( e.pageX === undefined ) ? e.touches[ 0 ].pageX : e.pageX;
-          knobPosy = ( e.pageY === undefined ) ? window.innerHeight - e.touches[ 0 ].pageY : window.innerHeight - e.pageY;
+					hookMoved = true;
+					hookPosx = ( e.pageX === undefined ) ? e.touches[ 0 ].pageX : e.pageX;
+          hookPosy = ( e.pageY === undefined ) ? window.innerHeight - e.touches[ 0 ].pageY : window.innerHeight - e.pageY;
 
-					//prevent the knob from being positioned outside the window bounds
-          if ( knobPosx < 0 ) knobPosx = 0;
-          if ( knobPosy < 0 ) knobPosy = 0;
-					if ( knobPosx > window.innerWidth ) knobPosx = window.innerWidth;
-          if ( knobPosy > window.innerHeight ) knobPosy = window.innerHeight;
+					//prevent the hook from being positioned outside the window bounds
+          if ( hookPosx < 0 ) hookPosx = 0;
+          if ( hookPosy < 0 ) hookPosy = 0;
+					if ( hookPosx > window.innerWidth ) hookPosx = window.innerWidth;
+          if ( hookPosy > window.innerHeight ) hookPosy = window.innerHeight;
 
-					knob.style.left = knobPosx + "px";
-          knob.style.top =  window.innerHeight - knobPosy + "px";
+					hook.style.left = hookPosx + "px";
+          hook.style.top =  window.innerHeight - hookPosy + "px";
 
 			}
 
@@ -180,7 +178,7 @@
 				 renderer.setScissor( 0, 0, window.innerWidth, window.innerHeight );
          renderer.render( sceneOuter, camera );
 
-         renderer.setScissor( knobPosx - params.window_size/2, knobPosy - params.window_size/2 , params.window_size, params.window_size );
+         renderer.setScissor( hookPosx - params.window_size/2, hookPosy - params.window_size/2 , params.window_size, params.window_size );
          renderer.render( sceneInside, camera );
 
 			}
@@ -192,9 +190,9 @@
 
 				renderer.setSize( container.clientWidth, container.clientHeight );
 
-				  if ( ! knobMoved ) {
-              knobPosx = window.innerWidth / 2;
-              knobPosy = window.innerHeight / 2;
+				  if ( ! hookMoved ) {
+              hookPosx = window.innerWidth / 2;
+              hookPosy = window.innerHeight / 2;
             }
 			}
 
