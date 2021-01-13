@@ -103,7 +103,7 @@
      function update_gui(file_list){
 
          // remove folder gui
-         document.getElementById('guiFolder').remove();
+         gui.__controllers[0].remove();
 
          // initialize textures for inner and background regions
          mesh.material[0].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[0]));
