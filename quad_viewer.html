@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<!-- Code for visualizing 4 spectral bands together.
+     Reference: https://threejs.org/examples/#webgl_multiple_scenes_comparison -->
+<html lang="en">
+	<head>
+      <title>Quad Viewer</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <script src="./build/dat.gui.min.js"></script>
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+
+	<body>
+		<div class="container">
+			<div class="knob" id="knob" style="display:none"></div>
+      <input type="file" id="fileInputI" name="file" style="display:None;" webkitdirectory multiple/>
+		  <div id="guiFolder"></div>
+		  <div id="guiLL"></div>
+		  <div id="guiLU"></div>
+		  <div id="guiRU"></div>
+		  <div id="guiRL"></div>
+		</div>
+
+		<script type="module">
+
+			import * as THREE from './build/three.module.js';
+
+      var container, camera, renderer, controls;
+			var sceneLU, sceneLL, sceneRU, sceneRL;
+      // initial position of the knob
+      var knobY = window.innerHeight / 2;
+			var knobX = window.innerWidth / 2;
+      var knobMoved = false;
+
+      container = document.querySelector( '.container' );
+
+      // initialize all quadrant backgrounds
+ 		  sceneLU = new THREE.Scene();
+			sceneLU.background = new THREE.Color( 0x000000 );
+
+      sceneLL = new THREE.Scene();
+			sceneLL.background = new THREE.Color( 0x000000 );
+
+			sceneRU = new THREE.Scene();
+			sceneRU.background = new THREE.Color( 0x000000 );
+
+      sceneRL = new THREE.Scene();
+      sceneRL.background = new THREE.Color( 0x000000 );
+
+      // define camera for the scenes
+			camera = new THREE.PerspectiveCamera( 35, container.clientWidth/container.clientHeight, 0.1, 100 );
+			camera.position.set( 0, 0, 10 );
+
+      // define geometry for the document - currently fixed, add options to modify this
+      var geometry = new THREE.PlaneBufferGeometry(10, 6, 32, 8);
+
+      // initialize textures in the four quadrants
+      var materialLU = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg')
+      });
+      var materialLL = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg')
+      });
+      var materialRL = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg')
+      });
+      var materialRU = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg')
+      });
+
+      // creating mesh for each quadrant
+		  var meshLU = new THREE.Mesh(geometry, materialLU);
+		  sceneLU.add(meshLU);
+      var meshLL = new THREE.Mesh( geometry, materialLL );
+      sceneLL.add( meshLL );
+		  var meshRU = new THREE.Mesh( geometry, materialRU );
+		  sceneRU.add( meshRU );
+      var meshRL = new THREE.Mesh( geometry, materialRL );
+      sceneRL.add( meshRL );
+
+      // addinig two lights for uniform illumination
+		  var light1 = new THREE.DirectionalLight();
+		  light1.position.set( 20, 20, 10 );
+		  sceneLU.add( light1 );
+      sceneLL.add( light1.clone());
+		  sceneRU.add( light1.clone() );
+      sceneRL.add( light1.clone() );
+		  var light2 = new THREE.DirectionalLight();
+		  light2.position.set( - 20, 20, 10 );
+		  sceneLU.add( light2 );
+      sceneLL.add( light2.clone() );
+		  sceneRU.add( light2.clone() );
+      sceneRL.add( light2.clone() );
+
+      // initializing the renderer
+			renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.setSize( container.clientWidth, container.clientHeight );
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setScissorTest( true );
+			container.appendChild( renderer.domElement );
+
+      // initializing gui parameters
+      var params = {
+              Quadrant1: '',
+              Quadrant2: '',
+              Quadrant3: '',
+              Quadrant4: '',
+                loadFolder : function() {
+                    document.getElementById('fileInputI').click();
+                }
+      };
+
+     // gui for selecting folder to upload images
+     var gui = new dat.GUI({ autoPlace: false , height: 300 });
+     var folder_gui = document.getElementById('guiFolder');
+     folder_gui.appendChild(gui.domElement);
+     var browseFolder = gui.add(params, 'loadFolder').name('Load folder');
+     var inputFolder = document.getElementById('fileInputI');
+     inputFolder.addEventListener('change', (e) => {
+         var file_list = e.target.files;
+         update_gui(file_list);
+     }, false);
+
+     // function to initialize the viewer after a folder is selected
+     function update_gui(file_list){
+
+         // remove folder gui
+         document.getElementById('guiFolder').remove();
+
+         // initialize textures for first four files
+         meshRU.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[0]));
+         meshRL.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[1]));
+         meshLU.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[2]));
+         meshLL.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[3]));
+
+         // extract file names for file objects
+         var file_urls = [];
+         var file_dict = {};
+         for (var i = 0; i < file_list.length; i++) {
+             file_urls.push(file_list[i].name);
+             file_dict[file_list[i].name] = file_list[i];
+         }
+
+         // update guis in each quadrant with respective file name
+         params['Quadrant1'] = file_urls[0];
+         params['Quadrant4'] = file_urls[1];
+         params['Quadrant2'] = file_urls[2];
+         params['Quadrant3'] = file_urls[3];
+
+        // define right upper gui
+        var guiRU = new dat.GUI({ autoPlace: false , height: 300 });
+        var RU_container = document.getElementById('guiRU');
+        RU_container.appendChild(guiRU.domElement);
+        var ui_RU = guiRU.add(params, 'Quadrant1', file_urls)
+                    .name('Quadrant 1')
+                    .listen();
+        ui_RU.onChange(function(newValue){
+            meshRU.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+        });
+
+        //define right lower gui
+        var guiRL = new dat.GUI({ autoPlace: false, height: 300 });
+        var RL_container = document.getElementById('guiRL');
+        RL_container.appendChild(guiRL.domElement);
+        var ui_RL = guiRL.add(params, 'Quadrant4', file_urls)
+                    .name('Quadrant 4')
+                    .listen();
+        ui_RL.onChange(function(newValue){
+            meshRL.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+        });
+
+        //define left lower gui
+        var guiLL = new dat.GUI({ autoPlace: false , height: 300 });
+        var LL_container = document.getElementById('guiLL');
+        LL_container.appendChild(guiLL.domElement);
+        var ui_LL = guiLL.add(params, 'Quadrant3', file_urls)
+                        .name('Quadrant 3')
+                        .listen();
+        ui_LL.onChange(function(newValue){
+            meshLL.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+        });
+
+        //define left upper gui
+        var guiLU = new dat.GUI({ autoPlace: false , height: 300 });
+        var LU_container = document.getElementById('guiLU');
+        LU_container.appendChild(guiLU.domElement);
+        var ui_LU = guiLU.add(params, 'Quadrant2', file_urls)
+                        .name('Quadrant 2')
+                        .listen();
+        ui_LU.onChange(function(newValue){
+            meshLU.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+        });
+
+        // enable knob for changing quadrant boundaries
+        document.getElementById('knob').style.display = 'block';
+        }
+
+
+			var knob = document.getElementById( 'knob' );
+
+			var clicked = false;
+      knob.addEventListener( 'mousedown', function(){clicked = true;});
+      knob.addEventListener( 'touchstart', function(){clicked = true;});
+
+      window.addEventListener( 'mouseup', function(){clicked = false;});
+      window.addEventListener( 'touchend', function(){clicked = false;});
+
+      window.addEventListener( 'mousemove', knobMove );
+      window.addEventListener( 'touchmove', knobMove );
+      window.addEventListener( 'resize', onWindowResize );
+
+
+			function knobMove( e ) {
+
+					if ( ! clicked ) return false;
+
+					knobMoved = true;
+
+					knobX = ( e.pageX === undefined ) ? e.touches[ 0 ].pageX : e.pageX;
+          knobY = ( e.pageY === undefined ) ? window.innerHeight - e.touches[ 0 ].pageY : window.innerHeight - e.pageY;
+
+					//prevent the knob from being positioned outside the window bounds
+          if ( knobX < 0 ) knobX = 0;
+          if ( knobY < 0 ) knobY = 0;
+					if ( knobX > window.innerWidth ) knobX = window.innerWidth;
+          if ( knobY > window.innerHeight ) knobY = window.innerHeight;
+
+					knob.style.left = knobX - ( knob.offsetWidth / 2 ) + "px";
+          knob.style.top =  window.innerHeight - knobY - knob.offsetHeight*3/4 + "px";
+
+			}
+
+
+     // start rendering
+     renderer.setAnimationLoop( render );
+
+		 function render() {
+
+         // update size of each quadrant according to position of the knob
+				 renderer.setScissorTest( true );
+				 renderer.setScissor( 0, 0, knobX, knobY );
+         renderer.render( sceneLL, camera );
+
+         renderer.setScissor( 0, knobY, knobX, window.innerHeight - knobY );
+         renderer.render( sceneLU, camera );
+
+         renderer.setScissor( knobX, knobY, window.innerWidth - knobX, window.innerHeight - knobY );
+         renderer.render( sceneRU, camera );
+
+				 renderer.setScissor( knobX, 0, window.innerWidth - knobX, knobY );
+				 renderer.render( sceneRL, camera );
+		 }
+
+			function onWindowResize() {
+
+				camera.aspect = container.clientWidth / container.clientHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( container.clientWidth, container.clientHeight );
+
+				  if ( ! knobMoved ) {
+              knobX = window.innerWidth / 2;
+              knobY = window.innerHeight / 2;
+            }
+			}
+
+		</script>
+
+	</body>
+
+</html>

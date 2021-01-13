@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+      <title>Magic highlighter</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+    <script src="./build/dat.gui.min.js"></script>
+	</head>
+
+	<body>
+		<div class="container">
+        <input type="file" id="fileInputI" name="file" style="display:None;" webkitdirectory multiple/>
+		  <div id="gui"></div>
+		</div>
+
+		<script type="module">
+
+			import * as THREE from './build/three.module.js';
+
+			var container, camera, renderer, materialOuter, materialInner, scene;
+      // initializing cursor position
+      var startPos = new THREE.Vector2();
+
+      // gui parameters
+      var params = {
+         Outer: '',
+         Inner: '',
+         width: 10,
+         loadFolder : function() {
+             document.getElementById('fileInputI').click();
+         }
+      };
+
+      container = document.querySelector( '.container' );
+      // initializing scene
+ 		  scene = new THREE.Scene();
+			scene.background = new THREE.Color( 0x000000 );
+      // defining camera for the scene
+			camera = new THREE.PerspectiveCamera( 35, container.clientWidth/container.clientHeight, 0.1, 100 );
+			camera.position.set( 0, 0, 10 );
+
+
+      // defining planar document for the document
+      var geometry = new THREE.PlaneBufferGeometry(10, 6, 32, 8);
+      geometry.clearGroups();
+      geometry.addGroup(0, Infinity, 0);
+      geometry.addGroup(0, Infinity, 1);
+      geometry.center();
+
+      // defining canvas to draw alpha map
+      var canvas = document.createElement('canvas');
+      var context = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+      // initialize textures for inner and outer part of document
+      materialInner = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg'),
+          alphaMap: new THREE.CanvasTexture(canvas),
+          transparent: true
+      });
+      materialOuter = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg'),
+         transparent: true
+      });
+      materialInner.needsUpdate = true;
+      materialOuter.needsUpdate = true;
+      var materials = [materialOuter, materialInner];
+
+      // creating mesh for the scene
+		  var mesh = new THREE.Mesh(geometry, materials);
+		  scene.add(mesh);
+
+      // adding two lights for uniform illumination
+		  var light1 = new THREE.DirectionalLight();
+		  light1.position.set( 20, 20, 10 );
+		  scene.add( light1.clone() );
+		  var light2 = new THREE.DirectionalLight();
+		  light2.position.set( - 20, 20, 10 );
+		  scene.add( light2.clone() );
+
+      // initializing the renderer
+			renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.setSize( container.clientWidth, container.clientHeight );
+			renderer.setPixelRatio( window.devicePixelRatio );
+			container.appendChild( renderer.domElement );
+
+      // gui for selecting folder to upload images
+      var gui = new dat.GUI({ autoPlace: false , height: 300 });
+      var RU_container = document.getElementById('gui');
+      RU_container.appendChild(gui.domElement);
+      var browseFolder = gui.add(params, 'loadFolder').name('Load folder');
+      var inputFolder = document.getElementById('fileInputI');
+      inputFolder.addEventListener('change', (e) => {
+         var file_list = e.target.files;
+         update_gui(file_list);
+     }, false);
+
+     // function to initialize the viewer after a folder is selected
+     function update_gui(file_list){
+
+         // remove folder gui
+         document.getElementById('guiFolder').remove();
+
+         // initialize textures for inner and background regions
+         mesh.material[0].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[0]));
+         mesh.material[1].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[1]));
+
+         // extract file names for file objects
+         var file_urls = [];
+         var file_dict = {};
+         for (var i = 0; i < file_list.length; i++) {
+             file_urls.push(file_list[i].name);
+             file_dict[file_list[i].name] = file_list[i];
+         }
+
+         // update guis in each quadrant with respective file name
+         params['Outer'] = file_urls[0];
+         params['Inner'] = file_urls[1];
+
+         // defining outer UI
+         var ui_outer = gui.add(params, 'Inner', file_urls)
+                      .name('Inner')
+                      .listen();
+          ui_outer.onChange(function(newValue){
+              mesh.material[0].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+          });
+         var ui_inner = gui.add(params, 'Outer', file_urls)
+                             .name('Outer')
+                             .listen();
+         ui_inner.onChange(function(newValue){
+             mesh.material[1].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+         });
+
+         // option to change width of the stroke
+         gui.add(params, 'width', 10, 50).onChange(draw(context, startPos.X, startPos.Y, params.width)) ;
+         }
+
+     // track and modify alpha map according to strokes
+     let paint = false;
+		 window.addEventListener( 'mousedown', function (e) {
+				 paint = true;
+				 startPos.set( e.clientX, e.clientY );
+     });
+		 window.addEventListener( 'touchstart', function (e){
+				 paint = true;
+				 startPos.set( e.offsetX, e.offsetY );
+     });
+     window.addEventListener( 'mouseup', function(){paint = false;});
+		 window.addEventListener( 'touchend', function(){paint = false;});
+		 window.addEventListener( 'mousemove', function(e) {
+        if (paint) draw( context, e.clientX, e.clientY, params.width);
+     });
+		 window.addEventListener( 'touchmove', function(e) {
+         if (paint) draw( context, e.offsetX, e.offsetY, params.width);
+     });
+
+     // render the scene
+     animate();
+
+		 function animate() {
+				 requestAnimationFrame( animate );
+         renderer.render( scene, camera );
+		 }
+
+		 function draw( context, x, y, width ) {
+				 context.moveTo( startPos.x, startPos.y );
+				 context.strokeStyle = '#000000';
+         context.lineWidth = width;
+				 context.lineTo( x, y );
+				 context.stroke();
+				 startPos.set( x, y );
+				 materialInner.alphaMap.needsUpdate = true;
+		 }
+
+		</script>
+
+	</body>
+
+</html>

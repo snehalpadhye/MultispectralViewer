@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<!-- Code for visualizing 2 spectrums through a window or a lens -->
+<html lang="en">
+	<head>
+      <title>Spectral Lens</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <script src="./build/dat.gui.min.js"></script>
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+
+	<body>
+		<div class="container">
+      <input type="file" id="fileInputI" name="file" style="display:None;" webkitdirectory multiple/>
+		  <div id="gui"></div>
+		</div>
+
+		<script type="module">
+
+			import * as THREE from './build/three.module.js';
+
+			var container, camera, renderer, materialOuter, materialInner, scene;
+		  var clicked = false;
+      // gui params
+      var params = {
+         Outer: '',
+         Inner: '',
+         shape: 'circle',
+         radius: 200,
+         loadFolder : function() {
+             document.getElementById('fileInputI').click();
+         }
+        };
+      container = document.querySelector( '.container' );
+      // initializing threejs scene
+ 		  scene = new THREE.Scene();
+			scene.background = new THREE.Color( 0x000000 );
+
+      // setting up camera for the scene
+		  camera = new THREE.PerspectiveCamera( 35, container.clientWidth/container.clientHeight, 0.1, 100 );
+			camera.position.set( 0, 0, 10 );
+
+      // setting up planar geometry for the documents
+      var geometry = new THREE.PlaneBufferGeometry(10, 6, 32, 8);
+      geometry.clearGroups();
+      geometry.addGroup(0, Infinity, 0);
+      geometry.addGroup(0, Infinity, 1);
+ 		  geometry.center();
+
+      // creating canvas to generate alpha map at runtime
+      var canvas = document.createElement('canvas');
+      var context = canvas.getContext('2d');
+      canvas.width = 4096;
+      canvas.height = 2048;
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, window.innerWidth, window.innerHeight);
+      var boundingBox=canvas.getBoundingClientRect();
+      var offsetX=boundingBox.left;
+      var offsetY=boundingBox.top;
+      var width = canvas.width;
+      var height = canvas.height;
+      var centerX, centerY;
+      centerX = width / 2;
+      centerY = height / 2;
+
+     // draw initial window/lens
+     draw(centerX, centerY, params.radius);
+
+     // initialize textures for inner and outer part of window
+     materialInner = new THREE.MeshStandardMaterial({
+          map: new THREE.TextureLoader().load('./textures/black.jpg'),
+          alphaMap : new THREE.CanvasTexture(canvas),
+          transparent: true
+      });
+     materialOuter = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg'),
+         transparent: true
+     });
+     materialInner.needsUpdate = true;
+     materialOuter.needsUpdate = true;
+     var materials = [materialOuter, materialInner];
+
+     // creating mesh for the scenes
+		 var mesh = new THREE.Mesh(geometry, materials);
+		 scene.add(mesh);
+
+     // adding two lights for uniform illumination
+		 var light1 = new THREE.DirectionalLight();
+		 light1.position.set( 20, 20, 20 );
+		 scene.add( light1.clone() );
+		 var light2 = new THREE.DirectionalLight();
+		 light2.position.set( - 20, 20, 20 );
+		 scene.add( light2.clone() );
+
+     // initializing the renderer
+		 renderer = new THREE.WebGLRenderer( { antialias: true } );
+		 renderer.setSize( container.clientWidth, container.clientHeight );
+		 renderer.setPixelRatio( window.devicePixelRatio );
+		 container.appendChild( renderer.domElement );
+
+     // gui for selecting folder to upload images
+     var gui = new dat.GUI({ autoPlace: false , height: 300 });
+     var RU_container = document.getElementById('gui');
+     RU_container.appendChild(gui.domElement);
+     var browseFolder = gui.add(params, 'loadFolder').name('Load folder');
+     var inputFolder = document.getElementById('fileInputI');
+     inputFolder.addEventListener('change', (e) => {
+         var file_list = e.target.files;
+         update_gui(file_list);
+     }, false);
+
+     // function to initialize the viewer after a folder is selected
+     function update_gui(file_list){
+
+         // remove folder gui
+         document.getElementById('guiFolder').remove();
+
+         // initialize textures for inner and outer regions
+         mesh.material[0].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[0]));
+         mesh.material[1].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[1]));
+
+         // extract file names for file objects
+         var file_urls = [];
+         var file_dict = {};
+         for (var i = 0; i < file_list.length; i++) {
+             file_urls.push(file_list[i].name);
+             file_dict[file_list[i].name] = file_list[i];
+         }
+
+         // update guis in each quadrant with respective file name
+         params['Outer'] = file_urls[0];
+         params['Inner'] = file_urls[1];
+
+         // defining outer UI
+         var ui_outer = gui.add(params, 'Outer', file_urls)
+                      .name('Outer')
+                      .listen();
+          ui_outer.onChange(function(newValue){
+              mesh.material[0].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+          });
+         // defining inner UI
+         var ui_inner = gui.add(params, 'Inner', file_urls)
+                             .name('Inner')
+                             .listen();
+         ui_inner.onChange(function(newValue){
+             mesh.material[1].map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+         });
+
+         // option to change window size
+         gui.add(params, 'radius', 100, 500).onChange(draw(centerX, centerY, params.radius)) ;
+         // option to change window shape
+         gui.add(params, 'shape', ['circle', 'square']);
+
+         // enable knob for changing quadrant boundaries
+         document.getElementById('knob').style.display = 'block';
+     }
+
+     window.addEventListener('mousedown', function (){ clicked = true; });
+     window.addEventListener('mousemove', function ( e ) {
+				 if ( ! clicked ) return false;
+
+         e.preventDefault();
+         e.stopPropagation();
+
+         // redraw the scene with the new rect positions
+         draw(canvas.width * (e.clientX / window.innerWidth),
+              canvas.height * (e.clientY / window.innerHeight),
+              params.radius);
+				 materialInner.alphaMap.needsUpdate = true;
+     });
+     window.addEventListener('mouseup', function (){clicked = false;});
+     // start rendering the loop
+     animate();
+		 function animate() {
+				 requestAnimationFrame( animate );
+         renderer.render( scene, camera );
+		 }
+     // draw a lens
+     function circle(x, y, r) {
+         context.fillStyle="#ffffff";
+         context.beginPath();
+         context.arc(x,y,r,0,Math.PI*2);
+         context.closePath();
+         context.fill();
+     }
+     // draw a window
+     function rect(x, y, r) {
+         context.fillStyle="#ffffff";
+         context.beginPath();
+         context.rect(x,y,r,r);
+         context.closePath();
+         context.fill();
+     }
+     // clear the canvas
+     function clear() {
+         context.clearRect(0, 0, width, height);
+     }
+     // redraw the scene
+     function draw(x,y,radius) {
+         clear();
+         if (params.shape == 'circle') circle(x,y, radius);
+         if (params.shape == 'square') rect(x,y, radius);
+     }
+		 // window resize handler
+		 function onWindowResize() {
+				 var width = window.innerWidth;
+				 var height = window.innerHeight;
+				 camera.aspect = width/height;
+				 camera.updateProjectionMatrix();
+				 renderer.setSize(width, height);
+		 }
+
+		</script>
+
+	</body>
+
+</html>

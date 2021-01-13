@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<!-- Code for visualizing 2 spectral bands together.
+     Reference: https://threejs.org/examples/#webgl_multiple_scenes_comparison -->
+<html lang="en">
+	<head>
+      <title>Quad Window</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+    <script src="./build/dat.gui.min.js"></script>
+	</head>
+
+	<body>
+
+		<div class="container">
+			  <div class="knob"></div>
+        <input type="file" id="fileInputI" name="file" style="display:None;" webkitdirectory multiple/>
+        <div id="gui"></div>
+		</div>
+
+		<script type="module">
+
+			import * as THREE from './build/three.module.js';
+
+			var container, camera, renderer, controls;
+			var sceneOuter, sceneInside;
+      // initial position of the window
+      var knobPosy = window.innerHeight / 2;
+			var knobPosx = window.innerWidth / 2;
+			var knobMoved = false;
+
+      container = document.querySelector( '.container' );
+
+      // initialize inner and outer scene of the window
+ 		  sceneOuter = new THREE.Scene();
+			sceneOuter.background = new THREE.Color( 0x000000 );
+
+      sceneInside = new THREE.Scene();
+			sceneInside.background = new THREE.Color( 0x000000 );
+
+      // define camera for scenes
+      camera = new THREE.PerspectiveCamera( 35, container.clientWidth/container.clientHeight, 0.1, 100 );
+			camera.position.set( 0, 0, 10 );
+
+      // defining planar document for the document
+      var geometry = new THREE.PlaneBufferGeometry(10, 6, 32, 8);
+
+      // initialize textures for inner and outer part of window
+      var materialOuter = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg')
+      });
+      var materialInner = new THREE.MeshStandardMaterial({
+         map: new THREE.TextureLoader().load('./textures/black.jpg')
+      });
+
+      // creating mesh for the scenes
+		  var meshOuter = new THREE.Mesh(geometry, materialOuter);
+		  sceneOuter.add(meshOuter);
+      var meshInner = new THREE.Mesh( geometry, materialInner );
+      sceneInside.add( meshInner );
+
+      // adding two lights for uniform illumination
+		  var light1 = new THREE.DirectionalLight();
+		  light1.position.set( 20, 20, 10 );
+		  sceneOuter.add( light1.clone() );
+      sceneInside.add( light1.clone() );
+		  var light2 = new THREE.DirectionalLight();
+		  light2.position.set( - 20, 20, 10 );
+		  sceneOuter.add( light2.clone() );
+      sceneInside.add( light2.clone() );
+
+      // initializing the renderer
+			renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.setSize( container.clientWidth, container.clientHeight );
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setScissorTest( true );
+			container.appendChild( renderer.domElement );
+
+      // initializing gui parameters
+      var params = {
+         Outer: 'rgb',
+         Inner: 'pca2',
+         window_size: 150,
+         loadFolder : function() {
+            document.getElementById('fileInputI').click();
+         }
+     };
+
+     // gui for selecting folder to upload images
+     var gui = new dat.GUI({ autoPlace: false , height: 300 });
+     var RU_container = document.getElementById('gui');
+     RU_container.appendChild(gui.domElement);
+     var browseFolder = gui.add(params, 'loadFolder').name('Load folder');
+     var inputFolder = document.getElementById('fileInputI');
+     inputFolder.addEventListener('change', (e) => {
+         var file_list = e.target.files;
+         update_gui(file_list);
+     }, false);
+
+     // function to initialize the viewer after a folder is selected
+     function update_gui(file_list){
+
+         // remove folder gui
+         document.getElementById('guiFolder').remove();
+
+         // initialize textures for inner and background regions
+         meshOuter.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[0]));
+         meshInner.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_list[1]));
+
+         // extract file names for file objects
+         var file_urls = [];
+         var file_dict = {};
+         for (var i = 0; i < file_list.length; i++) {
+             file_urls.push(file_list[i].name);
+             file_dict[file_list[i].name] = file_list[i];
+         }
+
+         // update guis in each quadrant with respective file name
+         params['Outer'] = file_urls[0];
+         params['Inner'] = file_urls[1];
+
+         // defining outer UI
+         var ui_outer = gui.add(params, 'Outer', file_urls)
+                      .name('Outer')
+                      .listen();
+          ui_outer.onChange(function(newValue){
+              meshOuter.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+          });
+         // defining inner UI
+         var ui_inner = gui.add(params, 'Inner', file_urls)
+                             .name('Inner')
+                             .listen();
+         ui_inner.onChange(function(newValue){
+             meshInner.material.map =  new THREE.TextureLoader().load(URL.createObjectURL(file_dict[newValue]));
+         });
+
+         // option to change window size
+         gui.add(params, 'window_size', 100, 500);
+
+         // enable knob for changing quadrant boundaries
+         document.getElementById('knob').style.display = 'block';
+        }
+
+
+			  var knob = document.getElementById( '.knob' );
+			  var clicked = false;
+        window.addEventListener( 'mousedown', function(){clicked = true ;});
+        window.addEventListener( 'touchstart', function(){clicked = true ;});
+        window.addEventListener( 'mouseup', function(){clicked = false;});
+        window.addEventListener( 'touchend', function(){clicked = false;});
+
+        window.addEventListener( 'mousemove', knobMove );
+        window.addEventListener( 'touchmove', knobMove );
+        window.addEventListener( 'resize', onWindowResize );
+
+			function knobMove( e ) {
+
+					if ( ! clicked ) return false;
+
+					knobMoved = true;
+					knobPosx = ( e.pageX === undefined ) ? e.touches[ 0 ].pageX : e.pageX;
+          knobPosy = ( e.pageY === undefined ) ? window.innerHeight - e.touches[ 0 ].pageY : window.innerHeight - e.pageY;
+
+					//prevent the knob from being positioned outside the window bounds
+          if ( knobPosx < 0 ) knobPosx = 0;
+          if ( knobPosy < 0 ) knobPosy = 0;
+					if ( knobPosx > window.innerWidth ) knobPosx = window.innerWidth;
+          if ( knobPosy > window.innerHeight ) knobPosy = window.innerHeight;
+
+					knob.style.left = knobPosx + "px";
+          knob.style.top =  window.innerHeight - knobPosy + "px";
+
+			}
+
+     // start rendering
+		 renderer.setAnimationLoop(render);
+		 function render() {
+
+				 renderer.setScissorTest( true );
+				 renderer.setScissor( 0, 0, window.innerWidth, window.innerHeight );
+         renderer.render( sceneOuter, camera );
+
+         renderer.setScissor( knobPosx - params.window_size/2, knobPosy - params.window_size/2 , params.window_size, params.window_size );
+         renderer.render( sceneInside, camera );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = container.clientWidth / container.clientHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( container.clientWidth, container.clientHeight );
+
+				  if ( ! knobMoved ) {
+              knobPosx = window.innerWidth / 2;
+              knobPosy = window.innerHeight / 2;
+            }
+			}
+
+		</script>
+
+	</body>
+
+</html>

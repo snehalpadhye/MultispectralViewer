@@ -1,0 +1,49 @@
+.container {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+}
+
+.knob {
+		position: absolute;
+
+		width: 40px;
+		height: 40px;
+		background-color: #4EE7E0;
+		opacity: 0.5;
+		border-radius: 25%;
+
+		top: calc(50% - 25px);
+		left: calc(50% - 15px);
+
+}
+#guiLL {
+		position: absolute;
+		bottom: 50px;
+		left: 10px;
+}
+#guiLU {
+		position: absolute;
+		top: 20px;
+		left: 10px;
+}
+#guiRL {
+		position: absolute;
+		bottom: 50px;
+		right: 10px;
+}
+#guiRU {
+		position: absolute;
+		top: 20px;
+		right: 10px;
+}
+#guiFolder {
+		position: absolute;
+		top: 20px;
+		right: 45%;
+}
+#gui {
+		position: absolute;
+		top: 20px;
+		right: 10px;
+}
